@@ -5,7 +5,7 @@ Plugin do Jellyfin (12.x) para entrar **só pelo Authentik**.
 - **Login OIDC** com o Authentik (authorization code + PKCE). Os grupos definem o acesso: `jellyfin_users` entra e `jellyfin_admins` vira admin. O nível de admin é atualizado a cada login.
 - **Senha bloqueada:** as contas do Authentik ficam com o provedor `Authentik (Bergafin)`, que recusa qualquer login por senha. Nenhum app consegue entrar com usuário e senha nessas contas.
 - **Quick Connect pelo Authentik:** em `/Bergafin/QuickConnect` você digita o código do aparelho, confirma quem é no Authentik e o aparelho entra na sua conta. Serve para TV, apps oficiais e o Seerr.
-- **App Android (Bergafin):** `/Bergafin/Login?mode=app` volta para `bergafin://login?ticket=…`. O app troca o ticket por uma sessão em `POST /Bergafin/Exchange`.
+- **App Android (Bergafin):** `/Bergafin/Login?mode=app` termina numa página que abre o app (`intent://` / `bergafin://login?ticket=…`). O web dentro do app troca o ticket por uma sessão em `POST /Bergafin/Exchange`.
 - **Contas locais** (provedor padrão, com senha do Jellyfin) nunca são ligadas ao Authentik. Para prendê-las à rede de casa, desligue *Permitir acesso remoto* nelas. O Jellyfin confere isso **em toda requisição**, não só no login.
 
 ## Instalação

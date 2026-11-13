@@ -26,7 +26,7 @@ namespace Bergafin.Auth.Api;
 public partial class BergafinController : ControllerBase
 {
     /// <summary>Esquema do deep link do app Bergafin (fixo, para não virar redirecionamento aberto).</summary>
-    public const string AppCallback = "bergafin://login";
+    public const string AppCallback = "bergafin://login"; // ver PageRenderer.AppReturn
 
     private readonly LoginStore _store;
     private readonly AuthentikClient _authentik;
@@ -129,7 +129,10 @@ public partial class BergafinController : ControllerBase
 
             case LoginMode.App:
                 var appTicket = _store.AddTicket(new LoginTicket(user.Id, user.Username, DateTime.UtcNow));
-                return Redirect(AppCallback + "?ticket=" + Uri.EscapeDataString(appTicket));
+                // Página em vez de 302: o Chrome no Android pode bloquear o redirecionamento
+                // direto para um esquema de app sem um toque do usuário; a página tenta
+                // abrir sozinha e tem um botão de reserva.
+                return Html(PageRenderer.AppReturn(appTicket));
 
             case LoginMode.WebFork:
                 var forkTicket = _store.AddTicket(new LoginTicket(user.Id, user.Username, DateTime.UtcNow));
