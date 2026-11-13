@@ -8,6 +8,14 @@
     "category": "Authentication",
     "versions": [
       {
+        "version": "0.2.0.0",
+        "changelog": "Rota /Bergafin/Info e retorno direto para o Bergafin-web",
+        "targetAbi": "12.4.0.0",
+        "sourceUrl": "https://github.com/Agelinena/Bergafin-auth/releases/download/v0.2.0/bergafin-auth_0.2.0.zip",
+        "checksum": "2bd693b854feefb53b47bcdf9054cf6f",
+        "timestamp": "2026-11-13T14:05:26Z"
+      },
+      {
         "version": "0.1.0.0",
         "changelog": "Primeira versão: login só pelo Authentik e Quick Connect",
         "targetAbi": "12.4.0.0",
