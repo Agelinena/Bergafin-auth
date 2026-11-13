@@ -59,13 +59,13 @@ public partial class BergafinController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(code))
         {
-            return Task.FromResult(Html(PageRenderer.QuickConnectForm()));
+            return Task.FromResult<ActionResult>(Html(PageRenderer.QuickConnectForm()));
         }
 
         code = code.Trim();
         if (!QuickConnectCode().IsMatch(code))
         {
-            return Task.FromResult(Html(PageRenderer.Message("Código inválido", "O código do Quick Connect tem só números. Confira na tela do aparelho."), 400));
+            return Task.FromResult<ActionResult>(Html(PageRenderer.Message("Código inválido", "O código do Quick Connect tem só números. Confira na tela do aparelho."), 400));
         }
 
         return StartLogin(LoginMode.QuickConnect, code, ct);
@@ -187,7 +187,7 @@ public partial class BergafinController : ControllerBase
         {
             return Html(PageRenderer.Message("Código não encontrado", "Esse código não existe ou expirou. Gere outro no aparelho."), 404);
         }
-        catch (Exception e) when (e is InvalidOperationException or System.Security.Authentication.AuthenticationException)
+        catch (Exception e) when (e is InvalidOperationException or MediaBrowser.Controller.Authentication.AuthenticationException)
         {
             return Html(PageRenderer.Message("Não foi possível aprovar", e.Message), 400);
         }

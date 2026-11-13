@@ -1,6 +1,5 @@
-using System.Security.Authentication;
-using Jellyfin.Database.Implementations.Entities;
 using MediaBrowser.Controller.Authentication;
+using Jellyfin.Database.Implementations.Entities;
 
 namespace Bergafin.Auth;
 

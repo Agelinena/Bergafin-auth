@@ -1,4 +1,5 @@
 using Bergafin.Auth.Oidc;
+using Jellyfin.Data;
 using Jellyfin.Database.Implementations.Entities;
 using Jellyfin.Database.Implementations.Enums;
 using MediaBrowser.Controller.Library;
