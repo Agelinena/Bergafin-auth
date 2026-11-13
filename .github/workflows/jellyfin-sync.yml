@@ -1,0 +1,79 @@
+# Acompanha o Jellyfin: quando sai uma versão estável nova, compila o plugin contra ela.
+# Se compilar, faz commit, cria a tag do próximo patch e publica o release.
+# Se não compilar, abre uma issue e o plugin continua na versão anterior.
+name: Acompanhar Jellyfin
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      jellyfin: ${{ steps.latest.outputs.jellyfin }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Última versão estável do Jellyfin
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST=$(gh api repos/jellyfin/jellyfin/releases/latest --jq .tag_name | sed 's/^v//')
+          case "$LATEST" in *.*.*) ;; *) LATEST="$LATEST.0" ;; esac
+          CURRENT=$(grep -oP 'Include="Jellyfin.Controller" Version="\K[0-9.]+' src/Bergafin.Auth/Bergafin.Auth.csproj)
+          echo "Jellyfin: atual $CURRENT, último $LATEST"
+          echo "jellyfin=$LATEST" >> "$GITHUB_OUTPUT"
+          [ "$LATEST" != "$CURRENT" ] && echo "changed=true" >> "$GITHUB_OUTPUT" || true
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.latest.outputs.changed
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Compilar contra a versão nova
+        id: build
+        if: steps.latest.outputs.changed
+        run: |
+          sed -i -E 's/(Include="Jellyfin\.(Controller|Model)" Version=")[0-9.]+/\1${{ steps.latest.outputs.jellyfin }}/' src/Bergafin.Auth/Bergafin.Auth.csproj
+          dotnet build src/Bergafin.Auth -c Release
+
+      - name: Commit e tag
+        id: bump
+        if: steps.latest.outputs.changed && steps.build.outcome == 'success'
+        run: |
+          LAST=$(git tag -l 'v*.*.*' --sort=-v:refname | head -1); LAST=${LAST#v}; LAST=${LAST:-0.0.0}
+          IFS=. read -r MA MI PA <<< "$LAST"
+          NEXT="$MA.$MI.$((PA + 1))"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -qam "Jellyfin ${{ steps.latest.outputs.jellyfin }}"
+          git tag -a "v$NEXT" -m "Compilado para o Jellyfin ${{ steps.latest.outputs.jellyfin }}"
+          git push origin HEAD:main "v$NEXT"
+          echo "version=$NEXT" >> "$GITHUB_OUTPUT"
+
+      - name: Avisar falha
+        if: failure() && steps.build.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="Plugin não compila no Jellyfin ${{ steps.latest.outputs.jellyfin }}"
+          gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number' | grep -q . \
+            || gh issue create --title "$TITLE" --body "Veja o run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  release:
+    needs: check
+    if: needs.check.outputs.version
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ needs.check.outputs.version }}
+      changelog: Compilado para o Jellyfin ${{ needs.check.outputs.jellyfin }}

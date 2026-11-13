@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <title>Bergafin Auth</title>
+</head>
+<body>
+<div id="BergafinAuthConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="BergafinAuthConfigForm">
+                <div class="verticalSection">
+                    <h2 class="sectionTitle">Bergafin Auth</h2>
+                    <p>Login só pelo Authentik. No Authentik, crie um provider OAuth2/OIDC (confidencial) com o redirect
+                        <code id="redirectUri">https://SEU-JELLYFIN/Bergafin/Callback</code>.</p>
+                    <p>Links: <a is="emby-linkbutton" class="button-link" href="../../Bergafin/Login">entrar pelo Authentik</a> ·
+                        <a is="emby-linkbutton" class="button-link" href="../../Bergafin/QuickConnect">aprovar Quick Connect</a></p>
+                </div>
+
+                <div class="inputContainer">
+                    <input is="emby-input" type="url" id="PublicUrl" label="Endereço público do Jellyfin" required />
+                    <div class="fieldDescription">Sem barra no fim. Ex.: https://jellyflix.exemplo.com</div>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="url" id="Issuer" label="Issuer do Authentik" required />
+                    <div class="fieldDescription">Ex.: https://auth.exemplo.com/application/o/jellyfin/</div>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="ClientId" label="Client ID" required />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="password" id="ClientSecret" label="Client Secret" autocomplete="new-password" required />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="UsersGroup" label="Grupo que pode entrar" />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="AdminsGroup" label="Grupo de administradores" />
+                </div>
+                <div class="checkboxContainer">
+                    <label>
+                        <input is="emby-checkbox" type="checkbox" id="EnableAllFolders" />
+                        <span>Contas novas veem todas as bibliotecas</span>
+                    </label>
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="LinkableProviders" label="Provedores ligáveis pelo nome (separados por vírgula)" />
+                    <div class="fieldDescription">Contas desses provedores (ex.: LDAP) passam para o Authentik no primeiro login com o mesmo nome. Contas com senha local nunca são ligadas.</div>
+                </div>
+
+                <button is="emby-button" type="submit" class="raised button-submit block"><span>Salvar</span></button>
+            </form>
+        </div>
+    </div>
+    <script type="text/javascript">
+        (function () {
+            const pluginId = '6f1b7c1e-8a4e-4c2b-9b7a-2f3d5e9a1b40';
+            const text = ['PublicUrl', 'Issuer', 'ClientId', 'ClientSecret', 'UsersGroup', 'AdminsGroup'];
+            const page = document.querySelector('#BergafinAuthConfigPage');
+
+            page.addEventListener('pageshow', function () {
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    text.forEach(function (k) { page.querySelector('#' + k).value = config[k] || ''; });
+                    page.querySelector('#EnableAllFolders').checked = !!config.EnableAllFolders;
+                    page.querySelector('#LinkableProviders').value = (config.LinkableProviders || []).join(', ');
+                    if (config.PublicUrl) {
+                        page.querySelector('#redirectUri').textContent = config.PublicUrl.replace(/\/$/, '') + '/Bergafin/Callback';
+                    }
+                    Dashboard.hideLoadingMsg();
+                });
+            });
+
+            page.querySelector('#BergafinAuthConfigForm').addEventListener('submit', function (e) {
+                e.preventDefault();
+                Dashboard.showLoadingMsg();
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    text.forEach(function (k) { config[k] = page.querySelector('#' + k).value.trim(); });
+                    config.PublicUrl = config.PublicUrl.replace(/\/$/, '');
+                    config.EnableAllFolders = page.querySelector('#EnableAllFolders').checked;
+                    config.LinkableProviders = page.querySelector('#LinkableProviders').value
+                        .split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+                    ApiClient.updatePluginConfiguration(pluginId, config).then(Dashboard.processPluginConfigurationUpdateResult);
+                });
+                return false;
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>

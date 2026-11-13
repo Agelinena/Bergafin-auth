@@ -1,0 +1,81 @@
+# Compila o plugin, publica o release com o zip e atualiza o manifest.json
+# (branch "manifest"), que o Jellyfin usa como repositório de plugins.
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_call:
+    inputs:
+      version:
+        description: Versão X.Y.Z
+        required: true
+        type: string
+      changelog:
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version && format('v{0}', inputs.version) || github.ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Versão
+        id: v
+        run: |
+          VERSION="${{ inputs.version }}"
+          [ -n "$VERSION" ] || VERSION="${GITHUB_REF_NAME#v}"
+          JF=$(grep -oP 'Include="Jellyfin.Controller" Version="\K[0-9.]+' src/Bergafin.Auth/Bergafin.Auth.csproj)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "abi=$JF.0" >> "$GITHUB_OUTPUT"
+          CHANGELOG="${{ inputs.changelog }}"
+          [ -n "$CHANGELOG" ] || CHANGELOG=$(git tag -l --format='%(contents:subject)' "v$VERSION")
+          [ -n "$CHANGELOG" ] || CHANGELOG="Versão $VERSION (Jellyfin $JF)"
+          echo "changelog=$CHANGELOG" >> "$GITHUB_OUTPUT"
+
+      - name: Compilar
+        run: |
+          dotnet publish src/Bergafin.Auth -c Release -o out -p:Version=${{ steps.v.outputs.version }}
+          mkdir pkg && cp out/Bergafin.Auth.dll pkg/
+          (cd pkg && zip -q ../bergafin-auth_${{ steps.v.outputs.version }}.zip *)
+          echo "MD5=$(md5sum bergafin-auth_${{ steps.v.outputs.version }}.zip | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.v.outputs.version }}" bergafin-auth_${{ steps.v.outputs.version }}.zip \
+            --title "v${{ steps.v.outputs.version }}" --notes "${{ steps.v.outputs.changelog }}" \
+            || gh release upload "v${{ steps.v.outputs.version }}" bergafin-auth_${{ steps.v.outputs.version }}.zip --clobber
+
+      - name: Atualizar manifest.json
+        run: |
+          URL="https://github.com/${{ github.repository }}/releases/download/v${{ steps.v.outputs.version }}/bergafin-auth_${{ steps.v.outputs.version }}.zip"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cp .github/scripts/manifest.py /tmp/manifest.py
+          if git ls-remote --exit-code origin manifest >/dev/null; then
+            git fetch origin manifest && git switch manifest
+          else
+            git switch --orphan manifest && git rm -rfq . 2>/dev/null || true
+          fi
+          python3 /tmp/manifest.py manifest.json "${{ steps.v.outputs.version }}" "${{ steps.v.outputs.abi }}" "$URL" "$MD5" "${{ steps.v.outputs.changelog }}"
+          git add manifest.json
+          git commit -qm "Bergafin Auth ${{ steps.v.outputs.version }}"
+          git push origin manifest

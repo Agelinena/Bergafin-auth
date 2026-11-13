@@ -1,0 +1,47 @@
+<h1>Entrando…</h1>
+<p id="status">Abrindo o Jellyfin.</p>
+<!-- O web do Jellyfin precisa rodar uma vez para criar o id do aparelho e o registro do servidor -->
+<iframe id="jf" src="../web/index.html" sandbox="allow-same-origin allow-scripts" style="position:absolute;width:0;height:0;border:0"></iframe>
+<script>
+(async () => {
+  const ticket = {{TICKET}};
+  const status = document.getElementById('status');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const ready = () => {
+    try {
+      const creds = JSON.parse(localStorage.getItem('jellyfin_credentials'));
+      return localStorage.getItem('_deviceId2') && creds && creds.Servers && creds.Servers[0] && creds.Servers[0].Id;
+    } catch { return false; }
+  };
+
+  localStorage.removeItem('jellyfin_credentials');
+  for (let i = 0; i < 300 && !ready(); i++) await sleep(100);
+  if (!ready()) { status.textContent = 'O Jellyfin não carregou. Recarregue a página.'; return; }
+
+  const ua = navigator.userAgent;
+  const deviceName = /Android/.test(ua) ? 'Navegador Android'
+    : /iPhone|iPad/.test(ua) ? 'Navegador iOS'
+    : /Firefox/.test(ua) ? 'Firefox' : /Edg\//.test(ua) ? 'Edge' : /Chrome/.test(ua) ? 'Chrome' : 'Navegador';
+
+  const res = await fetch('Exchange', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify({
+      ticket, deviceName,
+      deviceId: localStorage.getItem('_deviceId2'),
+      app: 'Jellyfin Web', appVersion: '12.4.0'
+    })
+  });
+  if (!res.ok) { status.innerHTML = 'O login expirou. <a href="Login">Tentar de novo</a>.'; return; }
+
+  const auth = await res.json();
+  auth.User.EnableAutoLogin = true;
+  localStorage.setItem('user-' + auth.User.Id + '-' + auth.User.ServerId, JSON.stringify(auth.User));
+  const creds = JSON.parse(localStorage.getItem('jellyfin_credentials'));
+  creds.Servers[0].AccessToken = auth.AccessToken;
+  creds.Servers[0].UserId = auth.User.Id;
+  localStorage.setItem('jellyfin_credentials', JSON.stringify(creds));
+  localStorage.setItem('enableAutoLogin', 'true');
+  location.replace('../web/index.html');
+})();
+</script>
