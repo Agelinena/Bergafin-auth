@@ -21,10 +21,11 @@ public static class PageRenderer
         => Page("Entrando…", WebLoginBody.Value.Replace("{{TICKET}}", JsonSerializer.Serialize(ticket), StringComparison.Ordinal));
 
     /// <summary>Volta para o app Bergafin (Android) com o ticket.</summary>
-    public static string AppReturn(string ticket)
+    public static string AppReturn(string ticket, string? clientState)
     {
         // O ticket é base64url, mas escapa por garantia
-        var query = "ticket=" + Uri.EscapeDataString(ticket);
+        var query = "ticket=" + Uri.EscapeDataString(ticket)
+            + (clientState is null ? string.Empty : "&state=" + Uri.EscapeDataString(clientState));
         var intentUrl = "intent://login?" + query + "#Intent;scheme=bergafin;package=" + AppPackage + ";end";
         var schemeUrl = "bergafin://login?" + query;
         var body = "<h1>Pronto!</h1><p>Voltando para o Bergafin…</p>"

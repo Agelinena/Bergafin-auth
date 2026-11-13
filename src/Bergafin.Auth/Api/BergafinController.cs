@@ -58,7 +58,7 @@ public partial class BergafinController : ControllerBase
         => Ok(new { Configured = AuthentikClient.IsConfigured, Version = typeof(Plugin).Assembly.GetName().Version?.ToString(3) });
 
     [HttpGet("Login")]
-    public Task<ActionResult> Login([FromQuery] string? mode, CancellationToken ct)
+    public Task<ActionResult> Login([FromQuery] string? mode, [FromQuery] string? state, CancellationToken ct)
     {
         var loginMode = mode?.ToLowerInvariant() switch
         {
@@ -66,7 +66,12 @@ public partial class BergafinController : ControllerBase
             "webfork" => LoginMode.WebFork,
             _ => LoginMode.Web,
         };
-        return StartLogin(loginMode, null, ct);
+        if (state is not null && !ClientState().IsMatch(state))
+        {
+            return Task.FromResult<ActionResult>(BadRequest("state inválido"));
+        }
+
+        return StartLogin(loginMode, null, state, ct);
     }
 
     [HttpGet("QuickConnect")]
@@ -83,7 +88,7 @@ public partial class BergafinController : ControllerBase
             return Task.FromResult<ActionResult>(Html(PageRenderer.Message("Código inválido", "O código do Quick Connect tem só números. Confira na tela do aparelho."), 400));
         }
 
-        return StartLogin(LoginMode.QuickConnect, code, ct);
+        return StartLogin(LoginMode.QuickConnect, code, null, ct);
     }
 
     [HttpGet("Callback")]
@@ -132,11 +137,12 @@ public partial class BergafinController : ControllerBase
                 // Página em vez de 302: o Chrome no Android pode bloquear o redirecionamento
                 // direto para um esquema de app sem um toque do usuário; a página tenta
                 // abrir sozinha e tem um botão de reserva.
-                return Html(PageRenderer.AppReturn(appTicket));
+                return Html(PageRenderer.AppReturn(appTicket, pending.ClientState));
 
             case LoginMode.WebFork:
                 var forkTicket = _store.AddTicket(new LoginTicket(user.Id, user.Username, DateTime.UtcNow));
-                return Redirect(Plugin.Instance!.Configuration.PublicUrl.TrimEnd('/') + "/web/#/login?bergafinTicket=" + Uri.EscapeDataString(forkTicket));
+                return Redirect(Plugin.Instance!.Configuration.PublicUrl.TrimEnd('/') + "/web/#/login?bergafinTicket=" + Uri.EscapeDataString(forkTicket)
+                    + (pending.ClientState is null ? string.Empty : "&bergafinState=" + Uri.EscapeDataString(pending.ClientState)));
 
             default:
                 var webTicket = _store.AddTicket(new LoginTicket(user.Id, user.Username, DateTime.UtcNow));
@@ -179,7 +185,7 @@ public partial class BergafinController : ControllerBase
         return Ok(session);
     }
 
-    private async Task<ActionResult> StartLogin(LoginMode mode, string? quickConnectCode, CancellationToken ct)
+    private async Task<ActionResult> StartLogin(LoginMode mode, string? quickConnectCode, string? clientState, CancellationToken ct)
     {
         if (!AuthentikClient.IsConfigured)
         {
@@ -187,7 +193,7 @@ public partial class BergafinController : ControllerBase
         }
 
         var verifier = LoginStore.NewSecret();
-        var state = _store.AddPending(new PendingLogin(verifier, mode, quickConnectCode, DateTime.UtcNow));
+        var state = _store.AddPending(new PendingLogin(verifier, mode, quickConnectCode, clientState, DateTime.UtcNow));
         try
         {
             return Redirect(await _authentik.BuildAuthorizeUrl(state, verifier, ct).ConfigureAwait(false));
@@ -220,6 +226,9 @@ public partial class BergafinController : ControllerBase
 
     private ContentResult Html(string html, int status = 200)
         => new() { Content = html, ContentType = "text/html; charset=utf-8", StatusCode = status };
+
+    [GeneratedRegex("^[A-Za-z0-9_-]{16,128}$")]
+    private static partial Regex ClientState();
 
     [GeneratedRegex("^[0-9]{6,10}$")]
     private static partial Regex QuickConnectCode();

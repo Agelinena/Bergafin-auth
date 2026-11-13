@@ -20,7 +20,10 @@ public enum LoginMode
 }
 
 /// <summary>Login em andamento (entre ir ao Authentik e voltar).</summary>
-public sealed record PendingLogin(string Verifier, LoginMode Mode, string? QuickConnectCode, DateTime Created);
+/// <remarks>ClientState: valor aleatório do web (ou do app) que volta junto com o ticket. O web só aceita
+/// o ticket se o state for o que ele mesmo guardou, então um link de terceiros não faz o
+/// aparelho entrar em outra conta.</remarks>
+public sealed record PendingLogin(string Verifier, LoginMode Mode, string? QuickConnectCode, string? ClientState, DateTime Created);
 
 /// <summary>Ticket de uso único que troca o login do Authentik por uma sessão do Jellyfin.</summary>
 public sealed record LoginTicket(Guid UserId, string Username, DateTime Created);
