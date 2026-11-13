@@ -6,8 +6,11 @@ namespace Bergafin.Auth.Oidc;
 /// <summary>Para onde o login volta depois do Authentik.</summary>
 public enum LoginMode
 {
-    /// <summary>Navegador: abre o Jellyfin já logado.</summary>
+    /// <summary>Navegador com o web oficial: página do plugin que grava o login e abre o Jellyfin.</summary>
     Web,
+
+    /// <summary>Bergafin-web: volta para /web/#/login?bergafinTicket=…, e o próprio web troca o ticket.</summary>
+    WebFork,
 
     /// <summary>App Android: volta para bergafin://login com um ticket.</summary>
     App,

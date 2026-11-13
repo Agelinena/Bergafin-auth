@@ -14,7 +14,8 @@ namespace Bergafin.Auth.Api;
 
 /// <summary>
 /// Rotas do login pelo Authentik:
-///   GET  /Bergafin/Login?mode=web|app      vai para o Authentik
+///   GET  /Bergafin/Info                    se o login pelo Authentik está configurado
+///   GET  /Bergafin/Login?mode=web|webfork|app  vai para o Authentik
 ///   GET  /Bergafin/QuickConnect[?code=]    aprova um código de Quick Connect pelo Authentik
 ///   GET  /Bergafin/Callback                volta do Authentik
 ///   POST /Bergafin/Exchange                troca o ticket por uma sessão do Jellyfin
@@ -50,9 +51,23 @@ public partial class BergafinController : ControllerBase
         _logger = logger;
     }
 
+    /// <summary>O Bergafin-web pergunta aqui se mostra o botão do Authentik.</summary>
+    [HttpGet("Info")]
+    [Produces(MediaTypeNames.Application.Json)]
+    public ActionResult Info()
+        => Ok(new { Configured = AuthentikClient.IsConfigured, Version = typeof(Plugin).Assembly.GetName().Version?.ToString(3) });
+
     [HttpGet("Login")]
     public Task<ActionResult> Login([FromQuery] string? mode, CancellationToken ct)
-        => StartLogin(string.Equals(mode, "app", StringComparison.OrdinalIgnoreCase) ? LoginMode.App : LoginMode.Web, null, ct);
+    {
+        var loginMode = mode?.ToLowerInvariant() switch
+        {
+            "app" => LoginMode.App,
+            "webfork" => LoginMode.WebFork,
+            _ => LoginMode.Web,
+        };
+        return StartLogin(loginMode, null, ct);
+    }
 
     [HttpGet("QuickConnect")]
     public Task<ActionResult> QuickConnect([FromQuery] string? code, CancellationToken ct)
@@ -115,6 +130,10 @@ public partial class BergafinController : ControllerBase
             case LoginMode.App:
                 var appTicket = _store.AddTicket(new LoginTicket(user.Id, user.Username, DateTime.UtcNow));
                 return Redirect(AppCallback + "?ticket=" + Uri.EscapeDataString(appTicket));
+
+            case LoginMode.WebFork:
+                var forkTicket = _store.AddTicket(new LoginTicket(user.Id, user.Username, DateTime.UtcNow));
+                return Redirect(Plugin.Instance!.Configuration.PublicUrl.TrimEnd('/') + "/web/#/login?bergafinTicket=" + Uri.EscapeDataString(forkTicket));
 
             default:
                 var webTicket = _store.AddTicket(new LoginTicket(user.Id, user.Username, DateTime.UtcNow));

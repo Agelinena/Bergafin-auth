@@ -27,7 +27,9 @@ Plugin do Jellyfin (12.x) para entrar **só pelo Authentik**.
 
 | Rota | O que faz |
 |---|---|
-| `GET /Bergafin/Login` | Login no navegador |
+| `GET /Bergafin/Info` | Diz se o login pelo Authentik está configurado. O Bergafin-web usa isso para mostrar o botão. |
+| `GET /Bergafin/Login` | Login no navegador com o web oficial. Uma página do plugin grava o login. |
+| `GET /Bergafin/Login?mode=webfork` | Login pelo Bergafin-web. Volta para `/web/#/login?bergafinTicket=…`. |
 | `GET /Bergafin/Login?mode=app` | Login do app Android |
 | `GET /Bergafin/QuickConnect` | Aprova um código de Quick Connect |
 | `GET /Bergafin/Callback` | Volta do Authentik |
