@@ -1,0 +1,20 @@
+[
+  {
+    "guid": "6f1b7c1e-8a4e-4c2b-9b7a-2f3d5e9a1b40",
+    "name": "Bergafin Auth",
+    "description": "Login no Jellyfin só pelo Authentik (OIDC), com Quick Connect aprovado pelo Authentik.",
+    "overview": "Login só pelo Authentik",
+    "owner": "Agelinena",
+    "category": "Authentication",
+    "versions": [
+      {
+        "version": "0.1.0.0",
+        "changelog": "Primeira versão: login só pelo Authentik e Quick Connect",
+        "targetAbi": "12.4.0.0",
+        "sourceUrl": "https://github.com/Agelinena/Bergafin-auth/releases/download/v0.1.0/bergafin-auth_0.1.0.zip",
+        "checksum": "b0ea3dec8f602778771a6a3c800bd527",
+        "timestamp": "2026-11-13T13:38:58Z"
+      }
+    ]
+  }
+]
